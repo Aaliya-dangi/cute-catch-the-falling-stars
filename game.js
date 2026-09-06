@@ -1013,3 +1013,11 @@ rightBtn.addEventListener(
     },
     { passive: false }
 );
+const startButton = document.getElementById('start-btn');
+
+if (startButton) {
+    startButton.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        startGame();
+    }, { passive: false });
+}
