@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catch the Falling Stars ✨</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+
+        <div id="start-screen" class="screen">
+            <h1 class="title">Catch the Falling <span class="star-word">Stars</span></h1>
+            <p class="subtitle">A magical pink adventure — catch the stars, dodge the trouble!</p>
+            <div class="controls-hint">
+                <span class="key">&#8592;</span>
+                <span class="key">&#8594;</span>
+                <p>Arrow keys to move</p>
+                <span class="hint-line">&#9733; Golden stars +3 &nbsp;|&nbsp; &#11088; Dodge the spikes</span>
+            </div>
+            <div class="best-pill">&#127942; Best Score: <span id="best-start">0</span></div>
+            <button id="start-btn" class="btn btn-start">&#10024; Start Game &#10024;</button>
+            <div class="deco d1">&#128151;</div><div class="deco d2">&#10024;</div><div class="deco d3">&#128156;</div>
+            <div class="deco d4">&#128149;</div><div class="deco d5">&#129412;</div><div class="deco d6">&#10024;</div>
+        </div>
+
+        <div id="game-over-screen" class="screen hidden">
+            <h2 class="game-over-title">Game Over &#128148;</h2>
+            <div class="final-score-box">
+                <span class="final-score-label">Final Score</span>
+                <span id="final-score" class="final-score">0</span>
+            </div>
+            <div class="stat-row">
+                <div class="stat">
+                    <span class="stat-value" id="final-level">1</span>
+                    <span class="stat-label">Level Reached</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value" id="high-score">0</span>
+                    <span class="stat-label">Best Score</span>
+                </div>
+            </div>
+            <div id="new-best" class="new-best hidden">&#127881; New Best Score! &#127881;</div>
+            <button id="restart-btn" class="btn btn-restart">&#128152; Play Again &#128152;</button>
+            <div class="deco d1">&#128148;</div><div class="deco d2">&#10024;</div><div class="deco d3">&#128156;</div>
+            <div class="deco d4">&#129525;</div>
+        </div>
+
+        <div id="hud" class="hidden">
+            <div class="lives-display" id="lives">
+                <span class="heart">&#9829;</span><span class="heart">&#9829;</span><span class="heart">&#9829;</span>
+            </div>
+            <div class="score-display">
+                <span class="hud-label">Score</span>
+                <span id="score">0</span>
+            </div>
+            <div class="hud-right">
+                <div class="level-display">
+                    <span class="hud-label">Level</span>
+                    <span id="level">1</span>
+                </div>
+                <button id="mute-btn" aria-label="Toggle sound" title="Sound on / off">&#128266;</button>
+            </div>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
