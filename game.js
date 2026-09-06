@@ -7,6 +7,8 @@ const hud = document.getElementById('hud');
 const startBtn = document.getElementById('start-btn');
 const restartBtn = document.getElementById('restart-btn');
 const muteBtn = document.getElementById('mute-btn');
+const leftBtn = document.getElementById('left-btn');
+const rightBtn = document.getElementById('right-btn');
 const scoreEl = document.getElementById('score');
 const levelEl = document.getElementById('level');
 const finalScoreEl = document.getElementById('final-score');
@@ -901,3 +903,113 @@ window.addEventListener('resize', () => {
 resizeCanvas();
 initBackground();
 animFrameBg = requestAnimationFrame(backgroundLoop);
+// ================================
+// MOBILE LEFT / RIGHT BUTTONS
+// ================================
+
+function startMobileMove(direction) {
+
+    if (direction === 'left') {
+        keyboard.left = true;
+    }
+
+    if (direction === 'right') {
+        keyboard.right = true;
+    }
+
+}
+
+
+function stopMobileMove(direction) {
+
+    if (direction === 'left') {
+        keyboard.left = false;
+    }
+
+    if (direction === 'right') {
+        keyboard.right = false;
+    }
+
+}
+
+
+// LEFT BUTTON
+
+leftBtn.addEventListener(
+    'touchstart',
+    function (e) {
+
+        e.preventDefault();
+
+        startMobileMove('left');
+
+    },
+    { passive: false }
+);
+
+
+leftBtn.addEventListener(
+    'touchend',
+    function (e) {
+
+        e.preventDefault();
+
+        stopMobileMove('left');
+
+    },
+    { passive: false }
+);
+
+
+leftBtn.addEventListener(
+    'touchcancel',
+    function (e) {
+
+        e.preventDefault();
+
+        stopMobileMove('left');
+
+    },
+    { passive: false }
+);
+
+
+// RIGHT BUTTON
+
+rightBtn.addEventListener(
+    'touchstart',
+    function (e) {
+
+        e.preventDefault();
+
+        startMobileMove('right');
+
+    },
+    { passive: false }
+);
+
+
+rightBtn.addEventListener(
+    'touchend',
+    function (e) {
+
+        e.preventDefault();
+
+        stopMobileMove('right');
+
+    },
+    { passive: false }
+);
+
+
+rightBtn.addEventListener(
+    'touchcancel',
+    function (e) {
+
+        e.preventDefault();
+
+        stopMobileMove('right');
+
+    },
+    { passive: false }
+);
