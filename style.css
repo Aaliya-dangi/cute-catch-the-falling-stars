@@ -475,4 +475,30 @@ body {
     .deco {
         font-size: 1.2rem;
     }
+    .mobile-controls {
+    position: absolute;
+    bottom: 25px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 25px;
+    z-index: 50;
+}
+
+.control-btn {
+    width: 75px;
+    height: 65px;
+    border: 3px solid #ff9ade;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #c752a8;
+    font-size: 2rem;
+    font-weight: bold;
+    box-shadow: 0 5px 15px rgba(214, 92, 190, 0.3);
+}
+
+.control-btn:active {
+    transform: scale(0.92);
+}
 }
