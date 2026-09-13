@@ -41,6 +41,22 @@ const STAR_COLORS = [
 const STAR_HEARTS = ['💗', '💖', '💕', '💫', '✨', '💞'];
 const GOLD = ['#ffd700', 'rgba(255,215,0,'];
 const BAD = ['#5a2d76', 'rgba(90,45,118,'];
+const HEART = ['#ff5f9e', 'rgba(255,95,158,'];
+const ICE = ['#67c4ff', 'rgba(103,196,255,'];
+const MYSTERY = ['#c98bff', 'rgba(201,139,255,'];
+const FREEZE_DURATION = 5;
+
+const GOLDEN_MIN_LEVEL = 2;
+const HEART_MIN_LEVEL = 3;
+const FREEZE_MIN_LEVEL = 4;
+const MYSTERY_MIN_LEVEL = 5;
+
+const SPECIAL_UNLOCKS = {
+    2: '✨ Golden Stars Unlocked!',
+    3: '💖 Heart Stars Unlocked!',
+    4: '❄️ Freeze Stars Unlocked!',
+    5: '🌈 Mystery Stars Unlocked!'
+};
 
 const PASTEL_CONFETTI = ['#ff9ade', '#c86bff', '#ff6fb5', '#ffd700', '#8ae9ff', '#b3f0c8', '#ffffff'];
 
@@ -71,6 +87,16 @@ let flashAlpha = 0;
 let banner = null;
 
 let muted = localStorage.getItem('catchTheStarsMuted') === '1';
+
+let musicOn = false;
+let musicMasterGain = null;
+let musicFilter = null;
+let musicTimer = null;
+let musicChordIndex = 0;
+let musicNextBarTime = 0;
+
+let freezeTimer = 0;
+let snowflakes = [];
 
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
@@ -136,10 +162,26 @@ function playClick() {
     playTone('sine', 600, 0.07, 0, 0.1);
 }
 
+function playHeart() {
+    playTone('triangle', 784, 0.12);
+    playTone('triangle', 988, 0.12, 0.08);
+    playTone('triangle', 1319, 0.2, 0.16);
+}
+
+function playFreeze() {
+    playTone('sine', 1400, 0.22, 0, 0.08);
+    playTone('sine', 880, 0.26, 0.14, 0.07);
+}
+
+function playMagic() {
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => playTone('triangle', f, 0.14, i * 0.07, 0.14));
+}
+
 highScoreEl.textContent = highScore;
 bestStartEl.textContent = highScore;
 
 updateMuteIcon();
+updateMusicUI();
 
 function initBackground() {
     backgroundStars.length = 0;
@@ -195,6 +237,18 @@ function getGoldenChance() {
     return Math.min(0.1, 0.05 + (level - 1) * 0.006);
 }
 
+function getHeartChance() {
+    return Math.min(0.045, 0.022 + (level - 1) * 0.003);
+}
+
+function getFreezeChance() {
+    return Math.min(0.05, 0.025 + (level - 1) * 0.003);
+}
+
+function getMysteryChance() {
+    return Math.min(0.05, 0.03 + (level - 1) * 0.002);
+}
+
 function getLevelFromScore() {
     return Math.min(15, Math.floor(score / 10) + 1);
 }
@@ -203,7 +257,7 @@ function spawnItem() {
     const type = pickItemType();
     const size = type === 'bad'
         ? Math.random() * 10 + 22
-        : type === 'golden'
+        : type === 'golden' || type === 'heart' || type === 'freeze' || type === 'mystery'
             ? Math.random() * 8 + 26
             : Math.random() * 14 + 16;
 
@@ -218,6 +272,18 @@ function spawnItem() {
         color = BAD[0];
         glow = BAD[1];
         glyph = '😾';
+    } else if (type === 'heart') {
+        color = HEART[0];
+        glow = HEART[1];
+        glyph = '💗';
+    } else if (type === 'freeze') {
+        color = ICE[0];
+        glow = ICE[1];
+        glyph = '❄️';
+    } else if (type === 'mystery') {
+        color = MYSTERY[0];
+        glow = MYSTERY[1];
+        glyph = '🌈';
     } else {
         const idx = Math.floor(Math.random() * STAR_COLORS.length);
         color = STAR_COLORS[idx][0];
@@ -245,13 +311,30 @@ function spawnItem() {
 
 function pickItemType() {
     const roll = Math.random();
-    if (roll < getBadChance()) return 'bad';
-    if (roll < getBadChance() + getGoldenChance()) return 'golden';
+    let acc = getBadChance();
+    if (roll < acc) return 'bad';
+    if (level >= GOLDEN_MIN_LEVEL) {
+        acc += getGoldenChance();
+        if (roll < acc) return 'golden';
+    }
+    if (level >= HEART_MIN_LEVEL) {
+        acc += getHeartChance();
+        if (roll < acc) return 'heart';
+    }
+    if (level >= FREEZE_MIN_LEVEL) {
+        acc += getFreezeChance();
+        if (roll < acc) return 'freeze';
+    }
+    if (level >= MYSTERY_MIN_LEVEL) {
+        acc += getMysteryChance();
+        if (roll < acc) return 'mystery';
+    }
     return 'star';
 }
 
 function scoreFor(type) {
     if (type === 'golden') return 3;
+    if (type === 'freeze') return 2;
     if (type === 'bad') return 0;
     return 1;
 }
@@ -327,28 +410,96 @@ function handleCatch(item) {
         return;
     }
 
-    score += scoreFor(item.type);
-
-    if (item.type === 'golden') {
-        addParticleBurst(cx, cy, '#ffd700', 30, 8);
-        addParticleBurst(cx, cy, '#fff8dc', 20, 7);
-        addFloatingText(cx, cy - 22, '+3 🎉', '#ffd700', 30);
-        playGolden();
-        drawSparkleRing(cx, cy, '#ffd700');
+    if (item.type === 'heart') {
+        if (lives < MAX_LIVES) {
+            lives += 1;
+            updateLivesUI();
+            addFloatingText(cx, cy - 24, '+1 💖', '#ff5f9e', 26);
+        } else {
+            score += 5;
+            addFloatingText(cx, cy - 24, '+5 ✨', '#ff5f9e', 26);
+        }
+        addParticleBurst(cx, cy, '#ff9ade', 20, 7);
+        addParticleBurst(cx, cy, '#ffffff', 12, 5);
+        drawSparkleRing(cx, cy, '#ff6fb5');
+        playHeart();
+    } else if (item.type === 'freeze') {
+        score += 2;
+        freezeTimer = FREEZE_DURATION;
+        addFloatingText(cx, cy - 24, '+2 ❄️ Freeze!', '#8fd8ff', 24);
+        spawnSnowBurst(cx, cy, 18);
+        playFreeze();
+        banner = { text: '❄️ Freeze Time! ❄️', t: 0, dur: 2000 };
+    } else if (item.type === 'mystery') {
+        applyMysteryReward(cx, cy);
     } else {
-        addParticleBurst(cx, cy, item.color, 18);
-        addFloatingText(cx, cy - 20, '+1', item.color, 22);
-        playCatch();
+        score += scoreFor(item.type);
+
+        if (item.type === 'golden') {
+            addParticleBurst(cx, cy, '#ffd700', 30, 8);
+            addParticleBurst(cx, cy, '#fff8dc', 20, 7);
+            addFloatingText(cx, cy - 22, '+3 🎉', '#ffd700', 30);
+            playGolden();
+            drawSparkleRing(cx, cy, '#ffd700');
+        } else {
+            addParticleBurst(cx, cy, item.color, 18);
+            addFloatingText(cx, cy - 20, '+1', item.color, 22);
+            playCatch();
+        }
     }
 
     const newLevel = getLevelFromScore();
     if (newLevel !== level) {
+        const prevLevel = level;
         level = newLevel;
-        onLevelUp();
+        onLevelUp(prevLevel);
     }
 
     scoreEl.textContent = score;
     levelEl.textContent = level;
+}
+
+function applyMysteryReward(cx, cy) {
+    const roll = Math.random();
+    playMagic();
+    confettiBurst(cx, cy, 24);
+    drawSparkleRing(cx, cy, '#c86bff');
+    addParticleBurst(cx, cy, '#ffffff', 12, 6);
+
+    if (roll < 0.35) {
+        score += 5;
+        addFloatingText(cx, cy - 24, '+5 ✨ Surprise!', '#c86bff', 24);
+    } else if (roll < 0.6) {
+        if (lives < MAX_LIVES) {
+            lives += 1;
+            updateLivesUI();
+            addFloatingText(cx, cy - 24, '+1 💖 Lucky!', '#ff5f9e', 24);
+        } else {
+            score += 5;
+            addFloatingText(cx, cy - 24, '+5 💖 Lucky!', '#ff5f9e', 24);
+        }
+    } else if (roll < 0.8) {
+        freezeTimer = FREEZE_DURATION * 0.6;
+        addFloatingText(cx, cy - 24, '❄️ Freeze bonus!', '#8fd8ff', 24);
+        playFreeze();
+    } else {
+        score += 8;
+        addFloatingText(cx, cy - 24, '+8 🎉 Jackpot!', '#ffd700', 26);
+    }
+}
+
+function spawnSnowBurst(x, y, count) {
+    for (let i = 0; i < count; i++) {
+        snowflakes.push({
+            x: x,
+            y: y,
+            vx: (Math.random() - 0.5) * 2.4,
+            vy: Math.random() * 1.8 + 0.6,
+            size: Math.random() * 3 + 1.5,
+            life: 1,
+            decay: Math.random() * 0.015 + 0.01
+        });
+    }
 }
 
 function drawSparkleRing(x, y, color) {
@@ -398,11 +549,24 @@ function updateLivesUI() {
     heartSpans.forEach((h, i) => h.classList.toggle('lost', i >= lives));
 }
 
-function onLevelUp() {
+function getUnlockText(fromLevel, toLevel) {
+    let text = '';
+    for (let lv = fromLevel + 1; lv <= toLevel; lv++) {
+        if (SPECIAL_UNLOCKS[lv]) text = SPECIAL_UNLOCKS[lv];
+    }
+    return text;
+}
+
+function onLevelUp(fromLevel) {
     playLevelUp();
     confettiBurst(canvasWidth / 2, canvasHeight * 0.38);
     confettiBurst(basket.x + basket.width / 2, basket.y, 30);
-    banner = { text: `✨ Level ${level}! ✨`, t: 0, dur: 2300 };
+    const unlock = fromLevel !== undefined ? getUnlockText(fromLevel, level) : '';
+    banner = {
+        text: unlock ? `${unlock} ✨` : `✨ Level ${level}! ✨`,
+        t: 0,
+        dur: unlock ? 2800 : 2300
+    };
 }
 
 function setShake(m) {
@@ -579,6 +743,73 @@ function drawStarShape(x, y, r, fill, glow) {
     ctx.restore();
 }
 
+function drawHeartShape(x, y, r, fill, glow) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.shadowColor = glow + '0.95)';
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.moveTo(0, r);
+    ctx.bezierCurveTo(r * 0.95, r * 0.5, r * 1.05, -r * 0.15, r * 0.42, -r * 0.55);
+    ctx.bezierCurveTo(r * 0.05, -r * 0.85, -r * 0.05, -r * 0.85, -r * 0.42, -r * 0.55);
+    ctx.bezierCurveTo(-r * 1.05, -r * 0.15, -r * 0.95, r * 0.5, 0, r);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath();
+    ctx.arc(-r * 0.3, -r * 0.28, r * 0.18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+function drawIceCrystal(x, y, r, fill, glow) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.shadowColor = glow + '0.95)';
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    const spikes = 6;
+    for (let i = 0; i < spikes * 2; i++) {
+        const radius = i % 2 === 0 ? r : r * 0.34;
+        const angle = -Math.PI / 2 + (i * Math.PI) / spikes;
+        const px = Math.cos(angle) * radius;
+        const py = Math.sin(angle) * radius;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.24, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+function drawMysteryOrb(x, y, r, glow) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.shadowColor = glow + '0.9)';
+    ctx.shadowBlur = 20;
+    const grad = ctx.createLinearGradient(-r, -r, r, r);
+    grad.addColorStop(0, '#ffb3d9');
+    grad.addColorStop(0.25, '#ffd27f');
+    grad.addColorStop(0.5, '#fff27f');
+    grad.addColorStop(0.75, '#b3f0c8');
+    grad.addColorStop(1, '#8ae9ff');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath();
+    ctx.arc(-r * 0.3, -r * 0.3, r * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
 function drawItem(item) {
     ctx.save();
     ctx.translate(item.x, item.y);
@@ -613,6 +844,24 @@ function drawItem(item) {
         ctx.textBaseline = 'middle';
         ctx.fillText('😾', 0, 0);
         ctx.globalAlpha = 1;
+    } else if (item.type === 'heart') {
+        drawHeartShape(0, 0, item.size / 2, item.color, item.glow);
+        ctx.font = `${item.size * 0.4}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('💗', 0, 0);
+    } else if (item.type === 'freeze') {
+        drawIceCrystal(0, 0, item.size / 2, item.color, item.glow);
+        ctx.font = `${item.size * 0.45}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('❄️', 0, 0);
+    } else if (item.type === 'mystery') {
+        drawMysteryOrb(0, 0, item.size / 2, item.glow);
+        ctx.font = `${item.size * 0.45}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🌈', 0, 0);
     } else {
         drawStarShape(0, 0, item.size / 2, item.color, item.glow);
 
@@ -670,6 +919,36 @@ function drawFloatingTexts() {
     ctx.shadowBlur = 0;
 }
 
+function drawSnowflakes() {
+    for (const s of snowflakes) {
+        ctx.globalAlpha = s.life;
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+}
+
+function drawFreezeOverlay() {
+    if (freezeTimer <= 0) return;
+    const alpha = Math.min(0.14, freezeTimer * 0.06);
+    const g = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+    g.addColorStop(0, 'rgba(120,200,255,' + alpha + ')');
+    g.addColorStop(1, 'rgba(120,200,255,' + (alpha * 0.4) + ')');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    ctx.font = "600 20px 'Fredoka', sans-serif";
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.shadowColor = 'rgba(103,196,255,0.9)';
+    ctx.shadowBlur = 10;
+    ctx.fillText('❄️ ' + Math.max(0, freezeTimer).toFixed(1) + 's', canvasWidth / 2, isMobileLayout() ? 64 : 76);
+    ctx.shadowBlur = 0;
+}
+
 function drawBanner() {
     if (!banner) return;
     const t = banner.t / banner.dur;
@@ -702,6 +981,7 @@ function drawBanner() {
 function update(deltaTime) {
     const dt = deltaTime / 1000;
     livesLostThisFrame = false;
+    if (freezeTimer > 0) freezeTimer = Math.max(0, freezeTimer - dt);
 
     if (keyboard.left && basket.x > 5) {
         basket.x -= basket.speed * dt * 60;
@@ -723,10 +1003,11 @@ function update(deltaTime) {
     }
 
     const dangerY = getDangerLineY();
+    const freezeMul = freezeTimer > 0 ? 0.5 : 1;
 
     for (let i = fallingItems.length - 1; i >= 0; i--) {
         const item = fallingItems[i];
-        item.y += item.speed * dt * 60 * 0.6;
+        item.y += item.speed * dt * 60 * 0.6 * freezeMul;
         item.x = item.baseX + Math.sin(elapsed * 0.001 * item.swaySpeed * 100) * item.sway;
         item.rotation += item.rotationSpeed;
 
@@ -771,6 +1052,26 @@ function update(deltaTime) {
         if (c.life <= 0) confetti.splice(i, 1);
     }
 
+    if (freezeTimer > 0 && Math.random() < 0.18) {
+        snowflakes.push({
+            x: Math.random() * canvasWidth,
+            y: -6,
+            vx: (Math.random() - 0.5) * 0.8,
+            vy: Math.random() * 1.6 + 0.8,
+            size: Math.random() * 2.6 + 1.2,
+            life: 1,
+            decay: Math.random() * 0.008 + 0.004
+        });
+    }
+
+    for (let i = snowflakes.length - 1; i >= 0; i--) {
+        const s = snowflakes[i];
+        s.x += s.vx;
+        s.y += s.vy;
+        s.life -= s.decay;
+        if (s.life <= 0) snowflakes.splice(i, 1);
+    }
+
     for (let i = floatingTexts.length - 1; i >= 0; i--) {
         const t = floatingTexts[i];
         t.y += t.vy;
@@ -805,8 +1106,10 @@ function gameLoop(timestamp) {
     drawParticles();
     drawConfetti();
     drawFloatingTexts();
+    drawSnowflakes();
     drawBasket();
     drawBanner();
+    drawFreezeOverlay();
 
     ctx.restore();
 
@@ -827,6 +1130,8 @@ function drawAmbient() {
     for (const item of fallingItems) drawItem(item);
     drawParticles();
     drawConfetti();
+    drawSnowflakes();
+    drawFreezeOverlay();
 }
 
 function backgroundLoop(timestamp) {
@@ -850,6 +1155,8 @@ function startGame() {
     particles.length = 0;
     confetti.length = 0;
     floatingTexts.length = 0;
+    snowflakes.length = 0;
+    freezeTimer = 0;
     score = 0;
     level = 1;
     lives = MAX_LIVES;
@@ -925,6 +1232,128 @@ function updateMuteIcon() {
     muteBtn.textContent = muted ? '🔇' : '🔊';
 }
 
+// ================================
+// LOFI MUSIC
+// ================================
+
+const LOFI_CHORDS = [
+    [220.0, 261.63, 329.63, 392.0],
+    [174.61, 220.0, 261.63, 329.63],
+    [261.63, 329.63, 392.0, 493.88],
+    [196.0, 246.94, 293.66, 392.0]
+];
+const LOFI_MELODY = [523.25, 587.33, 659.25, 783.99, 880.0];
+const LOFI_BAR_SECONDS = 3.6;
+
+function ensureMusicNodes() {
+    if (!audioCtx || musicFilter) return;
+    musicFilter = audioCtx.createBiquadFilter();
+    musicFilter.type = 'lowpass';
+    musicFilter.frequency.value = 1700;
+    musicFilter.Q.value = 0.3;
+    musicMasterGain = audioCtx.createGain();
+    musicMasterGain.gain.value = 0;
+    musicFilter.connect(musicMasterGain);
+    musicMasterGain.connect(audioCtx.destination);
+}
+
+function scheduleMusicBar(chordIndex, t) {
+    const chord = LOFI_CHORDS[chordIndex];
+    const barDur = LOFI_BAR_SECONDS;
+
+    chord.forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = i % 2 === 0 ? 'sine' : 'triangle';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.linearRampToValueAtTime(0.028, t + 0.5);
+        gain.gain.setValueAtTime(0.028, t + barDur - 0.9);
+        gain.gain.linearRampToValueAtTime(0.0001, t + barDur);
+        osc.connect(gain);
+        gain.connect(musicFilter);
+        osc.start(t);
+        osc.stop(t + barDur + 0.05);
+    });
+
+    if (Math.random() < 0.4) {
+        const mt = t + 0.3 + Math.random() * Math.max(0, barDur - 1.8);
+        const melOsc = audioCtx.createOscillator();
+        const melGain = audioCtx.createGain();
+        melOsc.type = 'sine';
+        melOsc.frequency.value = LOFI_MELODY[Math.floor(Math.random() * LOFI_MELODY.length)] * 0.5;
+        melGain.gain.setValueAtTime(0.0001, mt);
+        melGain.gain.linearRampToValueAtTime(0.016, mt + 0.5);
+        melGain.gain.linearRampToValueAtTime(0.0001, mt + 1.6);
+        melOsc.connect(melGain);
+        melGain.connect(musicFilter);
+        melOsc.start(mt);
+        melOsc.stop(mt + 1.7);
+    }
+}
+
+function scheduleMusicAhead() {
+    if (!musicOn || !audioCtx) return;
+    const aheadTime = audioCtx.currentTime + 0.4;
+    while (musicNextBarTime < aheadTime) {
+        scheduleMusicBar(musicChordIndex % LOFI_CHORDS.length, musicNextBarTime);
+        musicNextBarTime += LOFI_BAR_SECONDS;
+        musicChordIndex++;
+    }
+    musicTimer = setTimeout(scheduleMusicAhead, 180);
+}
+
+function startMusic() {
+    ensureAudio();
+    if (!audioCtx) return;
+    ensureMusicNodes();
+    musicNextBarTime = Math.max(musicNextBarTime, audioCtx.currentTime + 0.15);
+    musicMasterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+    musicMasterGain.gain.setValueAtTime(Math.max(musicMasterGain.gain.value, 0.0001), audioCtx.currentTime);
+    musicMasterGain.gain.linearRampToValueAtTime(0.16, audioCtx.currentTime + 1.2);
+    if (!musicTimer) scheduleMusicAhead();
+}
+
+function stopMusic() {
+    if (musicTimer) {
+        clearTimeout(musicTimer);
+        musicTimer = null;
+    }
+    if (audioCtx && musicMasterGain) {
+        musicMasterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+        musicMasterGain.gain.setValueAtTime(musicMasterGain.gain.value, audioCtx.currentTime);
+        musicMasterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.4);
+    }
+}
+
+function toggleMusic() {
+    ensureAudio();
+    musicOn = !musicOn;
+    if (musicOn) startMusic();
+    else stopMusic();
+    updateMusicUI();
+    if (musicOn) playClick();
+}
+
+function updateMusicUI() {
+    document.querySelectorAll('.music-btn').forEach((btn) => {
+        btn.classList.toggle('music-on', musicOn);
+        btn.classList.toggle('off', !musicOn);
+        btn.setAttribute('aria-label', musicOn ? 'Music on' : 'Music off');
+        btn.setAttribute('title', musicOn ? 'Music on' : 'Music off');
+        btn.textContent = btn.classList.contains('btn-chip')
+            ? (musicOn ? '🎵 Music On' : '🎵 Music Off')
+            : '🎵';
+    });
+}
+
+document.querySelectorAll('.music-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleMusic();
+    });
+});
+
 document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft' || e.key === 'Left') {
         keyboard.left = true;
@@ -951,14 +1380,14 @@ document.addEventListener('keyup', (e) => {
 let touchX = null;
 
 canvas.parentElement.addEventListener('touchstart', (e) => {
-    if (e.target.closest && e.target.closest('#mute-btn, .control-btn')) return;
+    if (e.target.closest && e.target.closest('#mute-btn, #music-btn, .music-btn, .control-btn, #vibe-toggle, .vibe-panel, #spotify-open-btn, #spotify-link-input')) return;
     const touch = e.touches[0];
     touchX = touch.clientX;
     e.preventDefault();
 }, { passive: false });
 
 canvas.parentElement.addEventListener('touchmove', (e) => {
-    if (e.target.closest && e.target.closest('#mute-btn, .control-btn')) return;
+    if (e.target.closest && e.target.closest('#mute-btn, #music-btn, .music-btn, .control-btn, #vibe-toggle, .vibe-panel, #spotify-open-btn, #spotify-link-input')) return;
     const touch = e.touches[0];
     if (touchX === null) {
         touchX = touch.clientX;
@@ -1119,3 +1548,54 @@ if (startButton) {
         startGame();
     }, { passive: false });
 }
+
+// ================================
+// CHOOSE YOUR VIBE
+// ================================
+
+const vibeToggle = document.getElementById('vibe-toggle');
+const vibePanel = document.getElementById('vibe-panel');
+const vibeInput = document.getElementById('spotify-link-input');
+const vibeOpenBtn = document.getElementById('spotify-open-btn');
+const vibeMsg = document.getElementById('vibe-msg');
+
+vibeToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    vibePanel.classList.toggle('open');
+    ensureAudio();
+    playClick();
+});
+
+const vibeClose = document.getElementById('vibe-close');
+const vibeCancel = document.getElementById('vibe-cancel');
+
+function closeVibePanel() {
+    vibePanel.classList.remove('open');
+    vibeMsg.textContent = '';
+}
+
+vibeClose.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeVibePanel();
+});
+
+vibeCancel.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeVibePanel();
+});
+
+vibeOpenBtn.addEventListener('click', () => {
+    const url = vibeInput.value.trim();
+    if (/^https?:\/\//i.test(url) && /(^|[./])spotify\.com/i.test(url)) {
+        ensureAudio();
+        playClick();
+        window.open(url, '_blank', 'noopener');
+        vibeMsg.textContent = 'Opening your playlist... 💕';
+    } else {
+        vibeMsg.textContent = 'Hmm, that link looks off — please paste a full Spotify link 💌';
+    }
+});
+
+vibePanel.addEventListener('click', (e) => {
+    e.stopPropagation();
+});

@@ -40,7 +40,11 @@
                 </p>
 
                 <span class="hint-line">
-                    ★ Golden stars +3 &nbsp;|&nbsp; ⭐ Dodge the spikes
+                    ⭐ +1 &nbsp;|&nbsp; 👑 Golden +3 &nbsp;|&nbsp; 💖 Heart = extra life &nbsp;|&nbsp; ❄️ Freeze slows stars &nbsp;|&nbsp; 🌈 Mystery = surprise
+                </span>
+
+                <span class="hint-line unlock-note">
+                    Special stars unlock as you level up! 💕
                 </span>
 
             </div>
@@ -52,6 +56,73 @@
             <button id="start-btn" class="btn btn-start">
                 ✨ Start Game ✨
             </button>
+
+            <div class="extra-row">
+
+                <button
+                    id="music-btn-start"
+                    class="music-btn btn-chip"
+                    aria-label="Toggle music"
+                    title="Music on / off">
+                    🎵 Music Off
+                </button>
+
+                <button
+                    id="vibe-toggle"
+                    class="btn-chip"
+                    aria-label="Choose your vibe"
+                    title="Choose your vibe">
+                    🎧 Choose Your Vibe 🎶
+                </button>
+
+            </div>
+
+            <div id="vibe-panel" class="vibe-panel">
+
+                <div class="vibe-header">
+
+                    <div class="vibe-title">
+                        Select a vibe to open a Spotify playlist 💕
+                    </div>
+
+                    <button
+                        id="vibe-close"
+                        class="vibe-close"
+                        aria-label="Close vibe menu"
+                        title="Close">❌</button>
+
+                </div>
+
+                <div class="vibe-grid">
+                    <a class="vibe-item" href="https://open.spotify.com/playlist/37i9dQZF1DWWQRwui0ExPn" target="_blank" rel="noopener">🌙 Lofi Focus</a>
+                    <a class="vibe-item" href="https://open.spotify.com/playlist/37i9dQZF1DWTr1aQUUVrXx" target="_blank" rel="noopener">☕ Cozy Cafe</a>
+                    <a class="vibe-item" href="https://open.spotify.com/playlist/6QAVsGp118XZLQrBe38r5O" target="_blank" rel="noopener">✨ Chill Vibes</a>
+                    <a class="vibe-item" href="https://open.spotify.com/playlist/7zf6Lywzjh04EL4VSXtD27" target="_blank" rel="noopener">🌸 Soft &amp; Cute</a>
+                </div>
+
+                <div class="vibe-note">
+                    Or paste your own Spotify playlist link:
+                </div>
+
+                <div class="vibe-custom">
+                    <input
+                        id="spotify-link-input"
+                        type="url"
+                        inputmode="url"
+                        placeholder="https://open.spotify.com/playlist/..." />
+                    <button id="spotify-open-btn">Open ▶</button>
+                </div>
+
+                <div class="vibe-footer">
+                    <button
+                        id="vibe-cancel"
+                        class="vibe-cancel"
+                        aria-label="Cancel and close vibe menu">Cancel</button>
+                </div>
+
+                <div id="vibe-msg" class="vibe-msg"></div>
+
+            </div>
 
             <div class="deco d1">💖</div>
             <div class="deco d2">✨</div>
@@ -112,6 +183,16 @@
                 💖 Play Again 💖
             </button>
 
+            <div class="extra-row">
+                <button
+                    id="music-btn-over"
+                    class="music-btn btn-chip"
+                    aria-label="Toggle music"
+                    title="Music on / off">
+                    🎵 Music Off
+                </button>
+            </div>
+
             <div class="deco d1">💔</div>
             <div class="deco d2">✨</div>
             <div class="deco d3">💜</div>
@@ -160,6 +241,14 @@
                     aria-label="Toggle sound"
                     title="Sound on / off">
                     🔊
+                </button>
+
+                <button
+                    id="music-btn"
+                    class="music-btn off"
+                    aria-label="Toggle music"
+                    title="Music on / off">
+                    🎵
                 </button>
 
             </div>
