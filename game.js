@@ -26,6 +26,8 @@ function resizeCanvas() {
     canvasWidth = container.clientWidth;
     canvasHeight = container.clientHeight;
 
+    if (canvasWidth <= 0 || canvasHeight <= 0) return;
+
     canvas.width = canvasWidth * window.devicePixelRatio;
     canvas.height = canvasHeight * window.devicePixelRatio;
     ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
@@ -156,6 +158,14 @@ function initBackground() {
     }
 }
 
+function isMobileLayout() {
+    return window.matchMedia('(max-width: 620px), (hover: none) and (pointer: coarse)').matches;
+}
+
+function getDangerLineY() {
+    return canvasHeight - (isMobileLayout() ? 46 : 52);
+}
+
 function createBasket() {
     const width = Math.min(120, canvasWidth * 0.16);
     const height = width * 0.6;
@@ -163,7 +173,7 @@ function createBasket() {
         width: width,
         height: height,
         x: (canvasWidth - width) / 2,
-        y: canvasHeight - height - 18,
+        y: getDangerLineY() - height - 26,
         speed: Math.max(6, canvasWidth * 0.011),
         tilt: 0
     };
@@ -370,8 +380,9 @@ function loseLife(kind, x, y) {
         setShake(14);
         flash('rgba(124,45,168,', 0.4);
     } else {
-        addParticleBurst(canvasWidth / 2, canvasHeight - 30, '#ff6fb5', 24, 6);
-        addFloatingText(canvasWidth / 2, canvasHeight - 55, '💔', '#ff6fb5', 30);
+        const lineY = getDangerLineY();
+        addParticleBurst(canvasWidth / 2, lineY - 34, '#ff6fb5', 24, 6);
+        addFloatingText(canvasWidth / 2, lineY - 58, '💔', '#ff6fb5', 30);
         playLoseHeart();
         setShake(9);
         flash('rgba(255,80,140,', 0.35);
@@ -427,6 +438,74 @@ function drawBackground() {
         }
     }
     ctx.globalAlpha = 1;
+}
+
+function drawDangerLine() {
+    const y = getDangerLineY();
+    if (y < 60 || y > canvasHeight - 8) return;
+
+    ctx.save();
+
+    const band = ctx.createLinearGradient(0, y, 0, canvasHeight);
+    band.addColorStop(0, 'rgba(255,111,181,0.35)');
+    band.addColorStop(1, 'rgba(255,111,181,0)');
+    ctx.fillStyle = band;
+    ctx.fillRect(0, y, canvasWidth, canvasHeight - y);
+
+    const spikes = Math.max(6, Math.floor(canvasWidth / 34));
+    const step = canvasWidth / spikes;
+    ctx.fillStyle = 'rgba(255,111,181,0.85)';
+    for (let i = 0; i <= spikes; i++) {
+        const sx = step * i;
+        ctx.beginPath();
+        ctx.moveTo(sx - step * 0.28, y);
+        ctx.lineTo(sx, y + 13);
+        ctx.lineTo(sx + step * 0.28, y);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    ctx.setLineDash([20, 14]);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#ff6fb5';
+    ctx.lineWidth = 6;
+    ctx.shadowColor = 'rgba(255,111,181,0.95)';
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.moveTo(14, y);
+    ctx.lineTo(canvasWidth - 14, y);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(14, y);
+    ctx.lineTo(canvasWidth - 14, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
+
+    const markers = [
+        { x: canvasWidth * 0.16, c: '💗' },
+        { x: canvasWidth * 0.36, c: '✨' },
+        { x: canvasWidth * 0.64, c: '✨' },
+        { x: canvasWidth * 0.84, c: '💗' }
+    ];
+    ctx.font = '15px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    for (const m of markers) {
+        ctx.fillText(m.c, m.x, y - 4);
+    }
+
+    ctx.font = "600 13px 'Fredoka', sans-serif";
+    ctx.textBaseline = 'bottom';
+    ctx.shadowColor = 'rgba(255,255,255,0.9)';
+    ctx.shadowBlur = 6;
+    ctx.fillStyle = '#d95b9e';
+    ctx.fillText('✨ Catch before this line ✨', canvasWidth / 2, Math.min(canvasHeight - 10, y + 30));
+
+    ctx.restore();
 }
 
 function drawBasket() {
@@ -643,6 +722,8 @@ function update(deltaTime) {
         spawnTimer += getSpawnInterval();
     }
 
+    const dangerY = getDangerLineY();
+
     for (let i = fallingItems.length - 1; i >= 0; i--) {
         const item = fallingItems[i];
         item.y += item.speed * dt * 60 * 0.6;
@@ -651,6 +732,14 @@ function update(deltaTime) {
 
         if (checkCollision(item)) {
             handleCatch(item);
+            fallingItems.splice(i, 1);
+            continue;
+        }
+
+        if (item.y + item.size / 2 >= dangerY) {
+            if (item.type === 'star') {
+                loseLife('star', item.x, item.y);
+            }
             fallingItems.splice(i, 1);
             continue;
         }
@@ -711,6 +800,7 @@ function gameLoop(timestamp) {
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     drawSky();
     drawBackground();
+    drawDangerLine();
     for (const item of fallingItems) drawItem(item);
     drawParticles();
     drawConfetti();
@@ -733,6 +823,7 @@ function gameLoop(timestamp) {
 function drawAmbient() {
     drawSky();
     drawBackground();
+    drawDangerLine();
     for (const item of fallingItems) drawItem(item);
     drawParticles();
     drawConfetti();
@@ -860,14 +951,14 @@ document.addEventListener('keyup', (e) => {
 let touchX = null;
 
 canvas.parentElement.addEventListener('touchstart', (e) => {
-    if (e.target.id === 'mute-btn') return;
+    if (e.target.closest && e.target.closest('#mute-btn, .control-btn')) return;
     const touch = e.touches[0];
     touchX = touch.clientX;
     e.preventDefault();
 }, { passive: false });
 
 canvas.parentElement.addEventListener('touchmove', (e) => {
-    if (e.target.id === 'mute-btn') return;
+    if (e.target.closest && e.target.closest('#mute-btn, .control-btn')) return;
     const touch = e.touches[0];
     if (touchX === null) {
         touchX = touch.clientX;
@@ -888,17 +979,24 @@ canvas.parentElement.addEventListener('touchend', (e) => {
     touchX = null;
 }, { passive: false });
 
-window.addEventListener('resize', () => {
+function handleLayoutChange() {
     resizeCanvas();
     initBackground();
     if (basket) {
-        basket.y = canvasHeight - basket.height - 18;
         basket.width = Math.min(120, canvasWidth * 0.16);
         basket.height = basket.width * 0.6;
+        basket.y = getDangerLineY() - basket.height - 26;
         basket.speed = Math.max(6, canvasWidth * 0.011);
         basket.x = Math.max(5, Math.min(canvasWidth - basket.width - 5, basket.x));
     }
-});
+}
+
+window.addEventListener('resize', handleLayoutChange);
+window.addEventListener('orientationchange', handleLayoutChange);
+
+if ('ResizeObserver' in window) {
+    new ResizeObserver(handleLayoutChange).observe(document.getElementById('game-container'));
+}
 
 resizeCanvas();
 initBackground();

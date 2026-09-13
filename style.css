@@ -406,18 +406,25 @@ body {
     }
 }
 
-@media (max-width: 620px) {
+@media (max-width: 620px), (hover: none) and (pointer: coarse) {
     body {
         width: 100vw;
+        height: 100vh;
         height: 100dvh;
+        min-height: 100vh;
         min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
         align-items: stretch;
-        justify-content: stretch;
+        justify-content: flex-start;
+        overflow: hidden;
     }
 
     #game-container {
         width: 100vw;
-        height: 100dvh;
+        height: auto;
+        flex: 1 1 auto;
+        min-height: 0;
         max-width: none;
         max-height: none;
         border-radius: 0;
@@ -427,6 +434,10 @@ body {
     #game-canvas {
         width: 100%;
         height: 100%;
+    }
+
+    .screen {
+        overflow-y: auto;
     }
 
     .title {
@@ -475,30 +486,33 @@ body {
     .deco {
         font-size: 1.2rem;
     }
+
     .mobile-controls {
-    position: absolute;
-    bottom: 25px;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: center;
-    gap: 25px;
-    z-index: 50;
-}
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 28px;
+        flex: none;
+        padding: 10px 0;
+        padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+        background: linear-gradient(135deg, #ffd9f2, #e9c8ff);
+        border-top: 3px solid #ffb8e4;
+        box-shadow: 0 -6px 18px rgba(214, 92, 190, 0.25);
+    }
 
-.control-btn {
-    width: 75px;
-    height: 65px;
-    border: 3px solid #ff9ade;
-    border-radius: 20px;
-    background: rgba(255, 255, 255, 0.9);
-    color: #c752a8;
-    font-size: 2rem;
-    font-weight: bold;
-    box-shadow: 0 5px 15px rgba(214, 92, 190, 0.3);
-}
+    .control-btn {
+        width: 78px;
+        height: 62px;
+        border: 3px solid #ff9ade;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.95);
+        color: #c752a8;
+        font-size: 2rem;
+        font-weight: bold;
+        box-shadow: 0 5px 15px rgba(214, 92, 190, 0.35);
+    }
 
-.control-btn:active {
-    transform: scale(0.92);
-}
+    .control-btn:active {
+        transform: scale(0.92);
+    }
 }
